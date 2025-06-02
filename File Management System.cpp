@@ -2,7 +2,18 @@
 #include<string>
 using namespace std;
 
-
+struct FileNode {
+    string filename;
+    string content;
+    size_t size;
+    time_t createdDate;
+    time_t lastModified;
+    time_t lastSeenDate;
+    
+    FileNode* prev;
+    FileNode* next;
+  
+};
 
 
 
