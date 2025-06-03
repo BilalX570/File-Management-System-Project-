@@ -108,6 +108,187 @@ struct FileNode {
         }
     }
 };
+
+// Structure for Recycle Bin items
+struct RecycleBinItem {
+    string originalPath;
+    string backupPath;
+    time_t deletionTime;
+    FileType type;
+    
+    void displayInfo() const {
+        cout << "Original: " << originalPath << "\n";
+        cout << "Backup: " << backupPath << "\n";
+        cout << "Type: " << fileTypeToString(type) << "\n";
+        cout << "Deleted: " << formatTime(deletionTime) << "\n";
+    }
+};
+
+// Recycle Bin class
+struct RecycleBin {
+
+    deque<RecycleBinItem> items;
+    string binPath;
+    size_t maxSize; // Maximum number of items in recycle bin
+    size_t maxStorage; // Maximum storage in bytes
+
+public:
+    RecycleBin() : maxSize(100), maxStorage(100 * 1024 * 1024) { // 100 items or 100MB
+        binPath = "recycle_bin";
+        if (!fs::exists(binPath)) {
+            fs::create_directory(binPath);
+        }
+    }
+
+    bool isFull() const {
+        if (items.size() >= maxSize) return true;
+        
+        size_t totalSize = 0;
+        for (const auto& item : items) {
+            if (fs::exists(item.backupPath)) {
+                totalSize += (item.type == DIRECTORY) ? 
+                    calculateDirectorySize(item.backupPath) : 
+                    fs::file_size(item.backupPath);
+            }
+        }
+        return totalSize >= maxStorage;
+    }
+
+    size_t calculateDirectorySize(const string& path) const {
+        size_t totalSize = 0;
+        for (const auto& entry : fs::recursive_directory_iterator(path)) {
+            if (fs::is_regular_file(entry)) {
+                totalSize += fs::file_size(entry);
+            }
+        }
+        return totalSize;
+    }
+
+    bool addToBin(const string& filepath) {
+        if (!fs::exists(filepath)) {
+            cerr << "File/directory doesn't exist: " << filepath << endl;
+            return false;
+        }
+
+        if (isFull()) {
+            cerr << "Recycle bin is full. Please empty it first." << endl;
+            return false;
+        }
+
+        RecycleBinItem item;
+        item.originalPath = filepath;
+        item.deletionTime = time(nullptr);
+        item.type = getFileType(filepath);
+
+        // Create unique backup filename
+        string filename = fs::path(filepath).filename().string();
+        string backupName = to_string(item.deletionTime) + "_" + filename;
+        item.backupPath = binPath + "/" + backupName;
+
+        try {
+            if (item.type == DIRECTORY) {
+                fs::rename(filepath, item.backupPath);
+            } else {
+                fs::copy(filepath, item.backupPath);
+                fs::remove(filepath);
+            }
+            items.push_back(item);
+            return true;
+        } catch (const exception& e) {
+            cerr << "Error moving to recycle bin: " << e.what() << endl;
+            return false;
+        }
+    }
+
+    void listItems() const {
+        if (items.empty()) {
+            cout << "Recycle Bin is empty.\n";
+            return;
+        }
+
+        cout << "\nRecycle Bin Contents (" << items.size() << " items):\n";
+        for (size_t i = 0; i < items.size(); i++) {
+            cout << i+1 << ". " << items[i].originalPath << "\n";
+            cout << "   Type: " << fileTypeToString(items[i].type) << "\n";
+            cout << "   Deleted: " << formatTime(items[i].deletionTime) << "\n";
+        }
+    }
+
+    bool restoreItem(size_t index) {
+        if (index >= items.size()) {
+            cout << "Invalid index.\n";
+            return false;
+        }
+
+        RecycleBinItem item = items[index];
+        try {
+            if (fs::exists(item.originalPath)) {
+                cout << "Original location already exists. Cannot restore.\n";
+                return false;
+            }
+
+            if (item.type == DIRECTORY) {
+                fs::rename(item.backupPath, item.originalPath);
+            } else {
+                fs::copy(item.backupPath, item.originalPath);
+                fs::remove(item.backupPath);
+            }
+            items.erase(items.begin() + index);
+            cout << "Restored: " << item.originalPath << "\n";
+            return true;
+        } catch (const exception& e) {
+            cerr << "Error restoring: " << e.what() << endl;
+            return false;
+        }
+    }
+
+    bool deleteItem(size_t index, bool permanent = false) {
+        if (index >= items.size()) {
+            cout << "Invalid index.\n";
+            return false;
+        }
+
+        RecycleBinItem item = items[index];
+        try {
+            if (permanent) {
+                if (item.type == DIRECTORY) {
+                    fs::remove_all(item.backupPath);
+                } else {
+                    fs::remove(item.backupPath);
+                }
+                cout << "Permanently deleted: " << item.originalPath << "\n";
+            } else {
+                cout << "Deleted: " << item.originalPath << "\n";
+            }
+            items.erase(items.begin() + index);
+            return true;
+        } catch (const exception& e) {
+            cerr << "Error deleting: " << e.what() << endl;
+            return false;
+        }
+    }
+
+    void emptyBin() {
+        for (auto& item : items) {
+            try {
+                if (item.type == DIRECTORY) {
+                    fs::remove_all(item.backupPath);
+                } else {
+                    fs::remove(item.backupPath);
+                }
+            } catch (const exception& e) {
+                cerr << "Error deleting " << item.backupPath << ": " << e.what() << endl;
+            }
+        }
+        items.clear();
+        cout << "Recycle Bin emptied.\n";
+    }
+
+    size_t size() const {
+        return items.size();
+    }
+};
+
 // Doubly linked list for file management
 struct FileList {
 
