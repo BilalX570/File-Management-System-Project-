@@ -214,6 +214,182 @@ void removeFileFromBeginning() {
         }
     }
 
+    void sortByName() {
+        if (count <= 1) return;
+
+        bool swapped;
+        FileNode* last = nullptr;
+        
+        do {
+            swapped = false;
+            FileNode* current = head;
+            
+            while (current->next != last) {
+                if (current->filename > current->next->filename) {
+                    swapNodesData(current, current->next);
+                    swapped = true;
+                }
+                current = current->next;
+            }
+            last = current;
+        } while (swapped);
+    }
+
+    void sortBySize() {
+        if (count <= 1) return;
+
+        bool swapped;
+        FileNode* last = nullptr;
+        
+        do {
+            swapped = false;
+            FileNode* current = head;
+            
+            while (current->next != last) {
+                if (current->size > current->next->size) {
+                    swapNodesData(current, current->next);
+                    swapped = true;
+                }
+                current = current->next;
+            }
+            last = current;
+        } while (swapped);
+    }
+
+    void sortByModifiedDate() {
+        if (count <= 1) return;
+
+        bool swapped;
+        FileNode* last = nullptr;
+        
+        do {
+            swapped = false;
+            FileNode* current = head;
+            
+            while (current->next != last) {
+                if (current->lastModified > current->next->lastModified) {
+                    swapNodesData(current, current->next);
+                    swapped = true;
+                }
+                current = current->next;
+            }
+            last = current;
+        } while (swapped);
+    }
+
+    map<FileType, size_t> getTotalSizesByType() const {
+        map<FileType, size_t> sizeMap;
+        FileNode* current = head;
+        while (current) {
+            sizeMap[current->type] += current->size;
+            current = current->next;
+        }
+        return sizeMap;
+    }
+
+    void printFiles() const {
+        if (isEmpty()) {
+            cout << "No files in the list.\n";
+            return;
+        }
+
+        FileNode* current = head;
+        int index = 1;
+        
+        while (current) {
+            cout << index++ << ". " << current->filename << endl;
+            cout << "------------------------------------------------------\n";
+            current->displayInfo();
+            current = current->next;
+            if (current) cout << endl;
+        }
+    }
+
+    void clear() {
+        while (head) {
+            FileNode* temp = head;
+            head = head->next;
+            delete temp;
+        }
+        head = tail = nullptr;
+        count = 0;
+    }
+
+    FileNode* getFileNode(const string& filename) {
+        FileNode* current = head;
+        while (current) {
+            if (current->filename == filename) {
+                current->lastSeenDate = time(nullptr);
+                return current;
+            }
+            current = current->next;
+        }
+        return nullptr;
+    }
+
+    const FileNode* getFileNode(const string& filename) const {
+        FileNode* current = head;
+        while (current) {
+            if (current->filename == filename) {
+                return current;
+            }
+            current = current->next;
+        }
+        return nullptr;
+    }
+
+    FileNode* getFileNode(int index) {
+        if (index < 0 || index >= count) return nullptr;
+
+        FileNode* current = head;
+        for (int i = 0; i < index && current; i++) {
+            current = current->next;
+        }
+        if (current) {
+            current->lastSeenDate = time(nullptr);
+        }
+        return current;
+    }
+
+    void addFile(const string& filename, const string& content = "", int position = -1) {
+        if (position == -1) {
+            addFileAtEnd(filename, content);
+        } else if (position == 0) {
+            addFileAtBeginning(filename, content);
+        } else {
+            addFileAtPosition(filename, position, content);
+        }
+    }
+
+    void removeFile(int position = -1) {
+        if (position == -1) {
+            removeFileFromEnd();
+        } else if (position == 0) {
+            removeFileFromBeginning();
+        } else {
+            removeFileFromPosition(position);
+        }
+    }
+
+    void searchByPrefix(const string& prefix) const {
+        FileNode* current = head;
+        bool found = false;
+        int index = 1;
+        
+        while (current) {
+            if (current->filename.find(prefix) == 0) {
+                cout << index++ << ". " << current->filename << endl;
+                current->displayInfo();
+                found = true;
+                current->lastSeenDate = time(nullptr);
+            }
+            current = current->next;
+        }
+        
+        if (!found) {
+            cout << "No files found with prefix '" << prefix << "'.\n";
+        }
+    }
 
 
 
