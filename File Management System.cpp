@@ -14,7 +14,104 @@ struct FileNode {
     FileNode* next;
   
 };
+// Doubly linked list for file management
+struct FileList {
 
+    FileNode* head;                                              
+    FileNode* tail;
+    int count;
+    
+    void swapNodesData(FileNode* a, FileNode* b) {
+        swap(a->filename, b->filename);
+        swap(a->content, b->content);
+        swap(a->size, b->size);
+        swap(a->type, b->type);
+        swap(a->createdDate, b->createdDate);
+        swap(a->lastModified, b->lastModified);
+        swap(a->lastSeenDate, b->lastSeenDate);
+    }
+
+
+    FileList() : head(nullptr), tail(nullptr), count(0) {}
+    
+    ~FileList() {
+        clear();
+    }
+
+    bool isEmpty() const { return head == nullptr; }
+    int size() const { return count; }
+
+    bool contains(const string& filename) const {
+        FileNode* current = head;
+        while (current) {
+            if (current->filename == filename) return true;
+            current = current->next;
+        }
+        return false;
+    }
+
+    void addFileAtBeginning(const string& filename, const string& content) {
+        if (contains(filename)) {
+            cout << "File '" << filename << "' already exists.\n";
+            return;
+        }
+
+        FileNode* newNode = new FileNode(filename, content);
+        if (isEmpty()) {
+            head = tail = newNode;
+        } else {
+            newNode->next = head;
+            head->prev = newNode;
+            head = newNode;
+        }
+        count++;
+    }
+
+    void addFileAtEnd(const string& filename, const string& content) {
+        if (contains(filename)) {
+            cout << "File '" << filename << "' already exists.\n";
+            return;
+        }
+
+        FileNode* newNode = new FileNode(filename, content);
+        if (isEmpty()) {
+            head = tail = newNode;
+        } else {
+            tail->next = newNode;
+            newNode->prev = tail;
+            tail = newNode;
+        }
+        count++;
+    }
+
+    void addFileAtPosition(const string& filename, int position, const string& content) {
+        if (position < 0 || position > count) {
+            cout << "Invalid position.\n";
+            return;
+        }
+
+        if (position == 0) {
+            addFileAtBeginning(filename, content);
+            return;
+        }
+
+        if (position == count) {
+            addFileAtEnd(filename, content);
+            return;
+        }
+
+        FileNode* newNode = new FileNode(filename, content);
+        FileNode* current = head;
+        for (int i = 0; i < position - 1; i++) {
+            current = current->next;
+        }
+    
+        newNode->next = current->next;
+        newNode->prev = current;
+        current->next->prev = newNode;
+        current->next = newNode;
+        count++;
+    }
 
 
 
@@ -114,7 +211,7 @@ int main() {
                 cin.ignore();
                 
                 if (createChoice == 1) {
-                   
+                       
                 } else if (createChoice == 2) {
                     
                 } else {
