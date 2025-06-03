@@ -1,4 +1,5 @@
 #include<iostream>
+#include <fstream>
 #include<string>
 using namespace std;
 
@@ -393,6 +394,218 @@ void removeFileFromBeginning() {
 
 
 
+    void readFile(const string& filename) {
+        if (!fileList.contains(filename)) {
+            cout << "File not found in the managed list.\n";
+            return;
+        }
+
+        FileNode* fileNode = fileList.getFileNode(filename);
+        if (fileNode->type == DIRECTORY) {
+            cout << "This is a directory, not a file.\n";
+            return;
+        }
+
+        string content = readFileContent(filename);
+        if (!content.empty()) {
+            cout << "Contents of '" << filename << "':\n";
+            cout << content;
+            fileList.updateFileContent(filename, content);
+            saveFiles();
+        } else {
+            cout << "File is empty or couldn't be read.\n";
+        }
+    }
+
+    void updateFile(const string& filename, const string& content) {
+        if (!fileList.contains(filename)) {
+            cout << "File doesn't exist. Create it first.\n";
+            return;
+        }
+
+        FileNode* fileNode = fileList.getFileNode(filename);
+        if (fileNode->type != DOCUMENT) {
+            cout << "Append or rewrite is not allowed for non-document files.\n";
+            return;
+        }
+
+        ofstream file(filename, ios::app);
+        if (file.is_open()) {
+            file << content << '\n';
+            cout << "Content appended to '" << filename << "' successfully.\n";
+            file.close();
+            
+            string currentContent = fileList.getFileContent(filename);
+            fileList.updateFileContent(filename, currentContent + content + "\n");
+            saveFiles();
+        } else {
+            cout << "Error: Unable to open file '" << filename << "'.\n";
+        }
+    }
+
+    void overwriteFile(const string& filename, const string& content) {
+        if (!fileList.contains(filename)) {
+            cout << "File doesn't exist. Create it first.\n";
+            return;
+        }
+
+        FileNode* fileNode = fileList.getFileNode(filename);
+        if (fileNode->type != DOCUMENT) {
+            cout << "Append or rewrite is not allowed for non-document files.\n";
+            return;
+        }
+
+        ofstream file(filename);
+        if (file.is_open()) {
+            file << content;
+            cout << "File '" << filename << "' overwritten successfully.\n";
+            file.close();
+            
+            fileList.updateFileContent(filename, content);
+            saveFiles();
+        } else {
+            cout << "Error: Unable to open file '" << filename << "'.\n";
+        }
+    }
+
+    void deleteFile(int position = -1) {
+        if (fileList.size() == 0) {
+            cout << "No files to delete.\n";
+            return;
+        }
+
+        FileNode* fileNode;
+        if (position == -1) {
+            fileNode = fileList.getFileNode(fileList.size() - 1);
+        } else if (position == 0) {
+            fileNode = fileList.getFileNode(0);
+        } else {
+            fileNode = fileList.getFileNode(position);
+        }
+
+        if (!fileNode) {
+            cout << "Invalid file position.\n";
+            return;
+        }
+
+        string filename = fileNode->filename;
+        if (recycleBin.addToBin(filename)) {
+            fileList.removeFile(position);
+            saveFiles();
+        }
+    }
+
+    void deleteFileByName(const string& filename) {
+        if (fileList.size() == 0) {
+            cout << "No files to delete.\n";
+            return;
+        }
+
+        FileNode* fileNode = fileList.getFileNode(filename);
+        if (!fileNode) {
+            cout << "File not found in managed list.\n";
+            return;
+        }
+
+        if (recycleBin.addToBin(filename)) {
+            fileList.removeFile(filename);
+            saveFiles();
+        }
+    }
+
+    void deleteAllFiles() {
+        if (fileList.size() == 0) {
+            cout << "No files to delete.\n";
+            return;
+        }
+
+        cout << "Are you sure you want to delete all files? (y/n): ";
+        char confirm;
+        cin >> confirm;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        if (confirm != 'y' && confirm != 'Y') return;
+
+        FileNode* current = fileList.getFileNode(0);
+        while (current) {
+            recycleBin.addToBin(current->filename);
+            current = current->next;
+        }
+        
+        fileList.clear();
+        saveFiles();
+        cout << "All files and directories moved to Recycle Bin.\n";
+    }
+
+    void listFiles() const {
+        cout << "\nManaged Files (" << fileList.size() << "):\n";
+        fileList.printFiles();
+    }
+
+    void searchFile(const string& filename) const {
+        if (fileList.contains(filename)) {
+            cout << "File found: " << filename << endl;
+            displayFileStats(filename);
+        } else {
+            cout << "File not found.\n";
+        }
+    }
+
+    void searchFilesByPrefix() {
+        string prefix;
+        cout << "Enter filename prefix to search: ";
+        getline(cin, prefix);
+        fileList.searchByPrefix(prefix);
+    }
+
+    void fileStatistics(const string& filename) const {
+        displayFileStats(filename);
+    }
+
+    void displayFileContent(const string& filename) const {
+        const FileNode* fileNode = fileList.getFileNode(filename);
+        if (fileNode) {
+            if (fileNode->type == DIRECTORY) {
+                cout << filename << " is a directory.\n";
+            } else {
+                cout << "Content of " << filename << " from memory:\n";
+                cout << fileNode->content;
+            }
+        } else {
+            cout << "File not found in memory.\n";
+        }
+    }
+
+    void sortFiles(int criteria) {
+        fileList.sortFiles(criteria);
+        saveFiles();
+        cout << "Files sorted successfully.\n";
+    }
+
+    void retrieveFileContent(const string& filename) const {
+        displayFileContent(filename);
+    }
+
+    void updateFileName(const string& oldName, const string& newName) {
+        FileNode* fileNode = fileList.getFileNode(oldName);
+        if (fileNode) {
+            if (fileList.contains(newName)) {
+                cout << "A file with name '" << newName << "' already exists.\n";
+                return;
+            }
+            
+            try {
+                fs::rename(oldName, newName);
+                fileNode->filename = newName;
+                fileNode->type = getFileType(newName);
+                saveFiles();
+                cout << "File renamed from '" << oldName << "' to '" << newName << "' successfully.\n";
+            } catch (const exception& e) {
+                cerr << "Error renaming: " << e.what() << endl;
+            }
+        } else {
+            cout << "File not found.\n";
+        }
+    }
 
 void displayMainMenu() {
     cout << "----------------------------------------\n";
