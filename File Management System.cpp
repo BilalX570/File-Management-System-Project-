@@ -7,6 +7,9 @@
 #include <limits>
 #include <vector>
 #include <filesystem>
+#include <deque>
+#include <iomanip>
+#include <sstream>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -111,7 +114,218 @@ struct FileNode {
 
 
 
+void updateFileMetadata(const string& filename) {
+        FileNode* fileNode = fileList.getFileNode(filename);
+        if (fileNode) {
+            fileNode->updateFileStats();
+            saveFiles();
+            cout << "Metadata updated for " << filename << ".\n";
+        } else {
+            cout << "File not found.\n";
+        }
+    }
 
+    void searchFilesByContent() {
+        string keyword;
+        cout << "Enter content keyword to search: ";
+        getline(cin, keyword);
+        
+        vector<FileNode*> results = fileList.searchByContent(keyword);
+        if (results.empty()) {
+            cout << "No files found containing '" << keyword << "'.\n";
+        } else {
+            cout << "Files containing '" << keyword << "':\n";
+            for (size_t i = 0; i < results.size(); i++) {
+                cout << i+1 << ". " << results[i]->filename << " (" 
+                     << fileTypeToString(results[i]->type) << ")\n";
+            }
+        }
+    }
+
+    void searchFilesByType() {
+        cout << "----------------------------------------\n";
+        cout << "Select file type to search:\n";
+        cout << "1. Document\n";
+        cout << "2. Image\n";
+        cout << "3. Audio\n";
+        cout << "4. Video\n";
+        cout << "5. Archive\n";
+        cout << "6. Directory\n";
+        cout << "7. Other\n";
+        cout << "----------------------------------------\n";
+        cout << "Enter choice: ";
+        int choice;
+        cin >> choice;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        
+        FileType type;
+        switch (choice) {
+            case 1: type = DOCUMENT; break;
+            case 2: type = IMAGE; break;
+            case 3: type = AUDIO; break;
+            case 4: type = VIDEO; break;
+            case 5: type = ARCHIVE; break;
+            case 6: type = DIRECTORY; break;
+            case 7: type = OTHER; break;
+            default: 
+                cout << "Invalid choice.\n";
+                return;
+        }
+        
+        vector<FileNode*> results = fileList.searchByType(type);
+        if (results.empty()) {
+            cout << "No files found of type " << fileTypeToString(type) << ".\n";
+        } else {
+            cout << "Files of type " << fileTypeToString(type) << ":\n";
+            for (size_t i = 0; i < results.size(); i++) {
+                cout << i+1 << ". " << results[i]->filename << "\n";
+            }
+        }
+    }
+
+    void searchFilesBySizeRange() {
+        size_t minSize, maxSize;
+        cout << "Enter minimum size (bytes): ";
+        cin >> minSize;
+        cout << "Enter maximum size (bytes): ";
+        cin >> maxSize;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        
+        if (minSize > maxSize) {
+            cout << "Invalid range (min > max).\n";
+            return;
+        }
+        
+        vector<FileNode*> results = fileList.searchBySizeRange(minSize, maxSize);
+        if (results.empty()) {
+            cout << "No files found in size range " << minSize << "-" << maxSize << " bytes.\n";
+        } else {
+            cout << "Files in size range " << minSize << "-" << maxSize << " bytes:\n";
+            for (size_t i = 0; i < results.size(); i++) {
+                cout << i+1 << ". " << results[i]->filename << " (" 
+                     << results[i]->size << " bytes)\n";
+            }
+        }
+    }
+
+    void displayDirectoryContents(const string& path = ".") const {
+        try {
+            cout << "\nContents of directory '" << path << "':\n";
+            int count = 1;
+            
+            for (const auto& entry : fs::directory_iterator(path)) {
+                string filename = entry.path().filename().string();
+                FileType type = getFileType(entry.path().string());
+                
+                cout << count++ << ". " << filename << " (" << fileTypeToString(type) << ")\n";
+                
+                if (type != DIRECTORY) {
+                    cout << "   Size: " << entry.file_size() << " bytes\n";
+                }
+                
+                auto ftime = entry.last_write_time();
+                time_t cftime = chrono::system_clock::to_time_t(
+                    chrono::time_point_cast<chrono::system_clock::duration>(
+                        ftime - decltype(ftime)::clock::now() + chrono::system_clock::now()
+                    )
+                );
+                cout << "   Modified: " << formatTime(cftime);
+            }
+        } catch (const exception& e) {
+            cerr << "Error reading directory: " << e.what() << endl;
+        }
+    }
+
+        void manageRecycleBin() {
+        while (true) {
+            cout << "----------------------------------------\n";
+            cout << "\nRecycle Bin Management (" << recycleBin.size() << " items)\n";
+            cout << "1. List items\n";
+            cout << "2. Restore item\n";
+            cout << "3. Delete item permanently\n";
+            cout << "4. Empty Recycle Bin\n";
+            cout << "0. Back to Main Menu\n";
+            cout << "----------------------------------------\n";
+            cout << "Enter your choice: ";
+            
+            int choice;
+            cin >> choice;
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            
+            if (choice == 0) break;
+            
+            switch (choice) {
+                case 1:
+                    recycleBin.listItems();
+                    break;
+                case 2: {
+                    cout << "Enter item number to restore: ";
+                    size_t index;
+                    cin >> index;
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                    if (index > 0) {
+                        recycleBin.restoreItem(index - 1);
+                    } else {
+                        cout << "Invalid index.\n";
+                    }
+                    break;
+                }
+                case 3: {
+                    cout << "Enter item number to delete permanently: ";
+                    size_t index;
+                    cin >> index;
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                    if (index > 0) {
+                        recycleBin.deleteItem(index - 1, true);
+                    } else {
+                        cout << "Invalid index.\n";
+                    }
+                    break;
+                }
+                case 4:
+                    cout << "Are you sure you want to empty the Recycle Bin? (y/n): ";
+                    char confirm;
+                    cin >> confirm;
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                    if (confirm == 'y' || confirm == 'Y') {
+                        recycleBin.emptyBin();
+                    }
+                    break;
+                default:
+                    cout << "Invalid choice.\n";
+            }
+        }
+    }
+
+    void loadFiles() {
+        ifstream file("files.txt");
+        if (!file) {
+            return; // No existing file is okay
+        }
+        string filename;
+        while (getline(file, filename)) {
+            if (!filename.empty()) {
+                string content = readFileContent(filename);
+                fileList.addFile(filename, content);
+            }
+        }
+        file.close();
+    }
+
+    void saveFiles() const {
+        ofstream file("files.txt");
+        if (!file) {
+            cout << "Error saving file list.\n";
+            return;
+        }
+        FileNode* current = fileList.head;
+        while (current) {
+            file << current->filename << '\n';
+            current = current->next;
+        }
+        file.close();
+    }
+};
 
 void displayMainMenu() {
     cout << "----------------------------------------\n";
