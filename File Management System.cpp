@@ -332,11 +332,11 @@ int main() {
                     cout << "  To delete from last, enter (-1)\n  To delete from first, enter (0)\n  Delete from specific index\nEnter position: ";
                     cin >> position;
                     cin.ignore();
-                   
+                    fm.deleteFile(position);
                 } else if (deleteChoice == 2) {
                     cout << "Enter filename: ";
                     getline(cin, filename);
-                    
+                    fm.deleteFileByName(filename);
                 } else {
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
@@ -345,12 +345,12 @@ int main() {
                 break;
             }
             case 3: // List Files
-                
+                fm.listFiles();
                 break;
             case 4: { // Search File
                 cout << "Enter filename to search: ";
                 getline(cin, filename);
-                
+                fm.searchFile(filename);
                 break;
             }
             case 5: { // Sort Files
@@ -359,7 +359,7 @@ int main() {
                 cin >> sortChoice;
                 cin.ignore();
                 if (sortChoice >= 1 && sortChoice <= 3) {
-                    
+                    fm.sortFiles(sortChoice);
                 } else if (sortChoice != 0) {
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
