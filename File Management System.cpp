@@ -485,7 +485,68 @@ void removeFileFromBeginning() {
         }
     }
 
+ void updateFileContent(const string& filename, const string& content) {
+        FileNode* fileNode = getFileNode(filename);
+        if (fileNode) {
+            fileNode->content = content;
+            fileNode->updateFileStats();
+        }
+    }
 
+    string getFileContent(const string& filename) const {
+        const FileNode* fileNode = getFileNode(filename);
+        return fileNode ? fileNode->content : "";
+    }
+
+    void sortFiles(int criteria) {
+        switch (criteria) {
+            case 1: sortByName(); break;
+            case 2: sortBySize(); break;
+            case 3: sortByModifiedDate(); break;
+            default: cout << "Invalid sorting criteria.\n";
+        }
+    }
+
+    vector<FileNode*> searchByContent(const string& keyword) {
+        vector<FileNode*> results;
+        FileNode* current = head;
+        while (current) {
+            if (current->type != DIRECTORY && current->content.find(keyword) != string::npos) {
+                results.push_back(current);
+                current->lastSeenDate = time(nullptr);
+            }
+            current = current->next;
+        }
+        return results;
+    }
+
+    vector<FileNode*> searchByType(FileType type) {
+        vector<FileNode*> results;
+        FileNode* current = head;
+        while (current) {
+            if (current->type == type) {
+                results.push_back(current);
+                current->lastSeenDate = time(nullptr);
+            }
+            current = current->next;
+        }
+        return results;
+    }
+
+    vector<FileNode*> searchBySizeRange(size_t minSize, size_t maxSize) {
+        vector<FileNode*> results;
+        FileNode* current = head;
+        while (current) {
+            if (current->type != DIRECTORY && 
+                current->size >= minSize && current->size <= maxSize) {
+                results.push_back(current);
+                current->lastSeenDate = time(nullptr);
+            }
+            current = current->next;
+        }
+        return results;
+    }
+};
 
     void readFile(const string& filename) {
         if (!fileList.contains(filename)) {
