@@ -1,7 +1,69 @@
 #include<iostream>
 #include<string>
-using namespace std;
+#include <algorithm>
+#include <ctime>
+#include <sys/stat.h>
+#include <map>
+#include <limits>
+#include <vector>
+#include <filesystem>
 
+using namespace std;
+namespace fs = std::filesystem;
+
+// File type classification
+enum FileType {
+    DOCUMENT, IMAGE, AUDIO, VIDEO, ARCHIVE, DIRECTORY, OTHER
+};
+
+// Mapping of file extensions to their types
+map<string, FileType> fileTypeMap = {
+    {".txt", DOCUMENT}, {".pdf", DOCUMENT}, 
+    {".doc", DOCUMENT}, {".docx", DOCUMENT},
+    {".jpg", IMAGE}, {".png", IMAGE},
+    {".gif", IMAGE}, {".bmp", IMAGE},
+    {".mp3", AUDIO}, {".wav", AUDIO},
+    {".mp4", VIDEO}, {".mov", VIDEO}, 
+    {".zip", ARCHIVE}, {".rar", ARCHIVE}
+};
+
+// Helper function to format time
+string formatTime(time_t time) {
+    if (time == 0) return "Unknown";
+    tm* timeinfo = localtime(&time);
+    char buffer[80];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+    return string(buffer);
+}
+
+// Determine file type based on extension
+FileType getFileType(const string& filename) {
+    if (fs::is_directory(filename)) {
+        return DIRECTORY;
+    }
+
+    size_t dotPos = filename.find_last_of('.');
+    if (dotPos != string::npos) {
+        string ext = filename.substr(dotPos);
+        transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        auto it = fileTypeMap.find(ext);
+        if (it != fileTypeMap.end()) return it->second;
+    }
+    return OTHER;
+}
+
+// Convert FileType enum to string for display
+string fileTypeToString(FileType type) {
+    switch(type) {
+        case DOCUMENT: return "Document";
+        case IMAGE:    return "Image";
+        case AUDIO:    return "Audio";
+        case VIDEO:    return "Video";
+        case ARCHIVE:  return "Archive";
+        case DIRECTORY: return "Directory";
+        default:       return "Other";
+    }
+}
 struct FileNode {
     string filename;
     string content;
@@ -9,10 +71,38 @@ struct FileNode {
     time_t createdDate;
     time_t lastModified;
     time_t lastSeenDate;
-    
+    FileType type;
     FileNode* prev;
     FileNode* next;
   
+    FileNode(const string& name, const string& cont = "") : 
+        filename(name), content(cont), prev(nullptr), next(nullptr) {
+        type = getFileType(filename);
+        updateFileStats();
+        createdDate = time(nullptr);
+        lastSeenDate = time(nullptr);
+    }
+    
+    void updateFileStats() {
+        size = (type == DIRECTORY) ? 0 : content.size();
+        lastModified = time(nullptr);
+        lastSeenDate = time(nullptr);
+    }
+    
+    void displayInfo() const {
+        cout << "File: " << filename << "\n";
+        cout << "Type: " << fileTypeToString(type) << "\n";
+        cout << "Size: " << size << " bytes\n";
+        cout << "Created: " << formatTime(createdDate) << "\n";
+        cout << "Modified: " << formatTime(lastModified) << "\n";
+        cout << "Last Seen: " << formatTime(lastSeenDate) << "\n";
+        
+        if (type != DIRECTORY) {
+            int lineCount = count(content.begin(), content.end(), '\n');
+            if (!content.empty() && content.back() != '\n') lineCount++;
+            cout << "Lines: " << lineCount << "\n";
+        }
+    }
 };
 // Doubly linked list for file management
 struct FileList {
@@ -390,6 +480,7 @@ void removeFileFromBeginning() {
             cout << "No files found with prefix '" << prefix << "'.\n";
         }
     }
+
 
 
 
