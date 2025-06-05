@@ -666,14 +666,15 @@ void displaySortMenu() {
     cout << "Enter your choice: ";
 }
 int main() {
-
+    FileManager fm;
+    fm.recoverFromCrash();
+    fm.loadFiles();
    
-    
-    while (true) {
+     while (true) {
         displayMainMenu();
         int choice;
         cin >> choice;
-        
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
         
         if (choice == 12) {
             cout << "Exiting program...\n";
@@ -691,17 +692,19 @@ int main() {
                 int createChoice;
                 cin >> createChoice;
                 cin.ignore();
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                 cout << "Enter name: ";
                 getline(cin, filename);
                 cout << "  To create at the last, enter (-1)\n  To create at the  first, enter (0)\n  Create at specific index\nEnter position: ";
                 cin >> position;
                 cin.ignore();
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                 if (createChoice == 1) {
-                       
+                      fm.createFile(filename, position); 
                 } else if (createChoice == 2) {
-                    
+                     fm.createDirectory(filename, position);
                 } else {
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
@@ -716,16 +719,17 @@ int main() {
                 int deleteChoice;
                 cin >> deleteChoice;
                 cin.ignore();
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                 if (deleteChoice == 1) {
                     cout << "  To delete from last, enter (-1)\n  To delete from first, enter (0)\n  Delete from specific index\nEnter position: ";
                     cin >> position;
                     cin.ignore();
-                   
+                    fm.deleteFile(position);
                 } else if (deleteChoice == 2) {
                     cout << "Enter filename: ";
                     getline(cin, filename);
-                    
+                    fm.deleteFileByName(filename);
                 } else {
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
@@ -734,12 +738,13 @@ int main() {
                 break;
             }
             case 3: // List Files
-                
+                fm.listFiles();
                 break;
             case 4: { // Search File
                 cout << "Enter filename to search: ";
                 getline(cin, filename);
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                fm.searchFile(filename)
                 break;
             }
             case 5: { // Sort Files
@@ -750,6 +755,7 @@ int main() {
                 if (sortChoice >= 1 && sortChoice <= 3) {
                     
                 } else if (sortChoice != 0) {
+                       fm.sortFiles(sortChoice);
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
                 cout << "|-----------------------------------|\n";
@@ -762,7 +768,8 @@ int main() {
                     int fileOpChoice;
                     cin >> fileOpChoice;
                     cin.ignore();
-                    
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                     if (fileOpChoice == 0) break;
                     
                     cout << "Enter filename: ";
@@ -770,31 +777,31 @@ int main() {
                     
                     switch (fileOpChoice) {
                         case 1:
-                            
+                            fm.readFile(filename);
                             break;
                         case 2:
                             cout << "Enter content to append: ";
                             getline(cin, content);
-                            
+                            fm.updateFile(filename, content);
                             break;
                         case 3:
                             cout << "Enter new content: ";
                             getline(cin, content);
-                            
+                            fm.overwriteFile(filename, content);
                             break;
                         case 4:
-                            
+                            fm.displayFileContent(filename);
                             break;
                         case 5:
                             cout << "Enter new name: ";
                             getline(cin, newName);
-                            
+                            fm.updateFileName(filename, newName);
                             break;
                         case 6:
-                            
+                            fm.fileStatistics(filename);
                             break;
                         case 7:
-                           
+                           fm.updateFileMetadata(filename);
                             break;
                         default:
                         cout << "|-----------------------------------|\n";
@@ -810,21 +817,21 @@ int main() {
                     int advSearchChoice;
                     cin >> advSearchChoice;
                     cin.ignore();
-                    
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');      
                     if (advSearchChoice == 0) break;
                     
                     switch (advSearchChoice) {
                         case 1:
-                            
+                           fm.searchFilesByContent(); 
                             break;
                         case 2:
-                          
+                            fm.searchFilesByType();
                             break;
                         case 3:
-                            
+                            fm.searchFilesBySizeRange();
                             break;
                         case 4:
-                          
+                          fm.searchFilesByPrefix();
                             break;
                         default:
                             cout << "|-----------------------------------|\n";
@@ -855,10 +862,13 @@ int main() {
                 break;
             }
             case 10: // Manage Recycle Bin
-                
+                fm.manageRecycleBin();
                 break;
             case 11: // View Memory Status
-                
+                fm.displayMemoryStatus();
+                break;
+                case 12:  // Open File Location
+                fm.showFileLocation();
                 break;
             default:
                 cout << "|-----------------------------------|\n";
