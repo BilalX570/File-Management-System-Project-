@@ -392,7 +392,133 @@ void removeFileFromBeginning() {
         }
     }
 
+    
+    vector<FileNode*> searchBySizeRange(size_t minSize, size_t maxSize) {
+        vector<FileNode*> results;
+        FileNode* current = head;
+        while (current) {
+            if (current->type != DIRECTORY && 
+                current->size >= minSize && current->size <= maxSize) {
+                results.push_back(current);
+                current->lastSeenDate = time(nullptr);
+            }
+            current = current->next;
+        }
+        return results;
+    }
+};
+void openInFileExplorer(const string& path) {
+    #ifdef _WIN32
+        string command = "explorer \"" + path + "\"";
+    #elif __APPLE__
+        string command = "open \"" + path + "\"";
+    #else // Linux
+        string command = "xdg-open \"" + path + "\"";
+    #endif
+    system(command.c_str());
+}
 
+// File manager 
+struct FileManager {
+
+    FileList fileList;
+    RecycleBin recycleBin;
+
+     void showFileLocation() const {
+        string path = fs::current_path().string(); // Gets program's current directory
+        cout << "Files are stored in: " << path << endl;
+        openInFileExplorer(path);
+    }
+
+    string readFileContent(const string& filename) {
+        if (getFileType(filename) == DIRECTORY) {
+            return "";
+        }
+
+        ifstream file(filename);
+        string content, line;
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                content += line + "\n";
+            }
+            file.close();
+        }
+        return content;
+    }
+
+    void displayFileStats(const string& filename) const {
+        const FileNode* fileNode = fileList.getFileNode(filename);
+        if (fileNode) {
+            fileNode->displayInfo();
+        } else {
+            cout << "File not found in memory.\n";
+        }
+    }
+
+    void displayMemoryStatus() const {
+        map<FileType, size_t> sizeMap = fileList.getTotalSizesByType();
+        size_t totalSize = 0;
+
+        cout << "\nMemory Status by File Type:\n";
+        cout << "----------------------------------------\n";
+        
+        for (const auto& pair : sizeMap) {
+            cout << left << setw(12) << fileTypeToString(pair.first) << ": " 
+                 << right << setw(12) << pair.second << " bytes ("
+                 << fixed << setprecision(2) << (pair.second / 1024.0) << " KB, "
+                 << (pair.second / (1024.0 * 1024.0)) << " MB)\n";
+            totalSize += pair.second;
+        }
+
+        cout << "----------------------------------------\n";
+        cout << left << setw(12) << "Total" << ": " 
+             << right << setw(12) << totalSize << " bytes ("
+             << fixed << setprecision(2) << (totalSize / 1024.0) << " KB, "
+             << (totalSize / (1024.0 * 1024.0)) << " MB)\n";
+    }
+
+public:
+    void createFile(const string& filename, int position = -1) {
+    if (fs::exists(filename)) {
+        cout << "File/directory already exists: " << filename << endl;
+        return;
+    }
+
+    // Create parent directories if they don't exist
+    fs::path p(filename);
+    if (p.has_parent_path() && !fs::exists(p.parent_path())) {
+        fs::create_directories(p.parent_path());
+    }
+
+    ofstream file(filename);
+    if (file.is_open()) {
+        file.close();
+        fileList.addFile(filename, readFileContent(filename), position);
+        saveFiles();
+        cout << "File created: " << filename << endl;
+    } else {
+        cout << "Failed to create file: " << filename << endl;
+    }
+}
+
+    void createDirectory(const string& dirname, int position = -1) {
+        if (fs::exists(dirname)) {
+            cout << "Directory '" << dirname << "' already exists.\n";
+            return;
+        }
+
+        try {
+            if (fs::create_directory(dirname)) {
+                cout << "Directory '" << dirname << "' created successfully.\n";
+                fileList.addFile(dirname, "", position);
+                saveFiles();
+            } else {
+                cout << "Failed to create directory '" << dirname << "'.\n";
+            }
+        } catch (const exception& e) {
+            cerr << "Error creating directory: " << e.what() << endl;
+        }
+    }
 
     void readFile(const string& filename) {
         if (!fileList.contains(filename)) {
