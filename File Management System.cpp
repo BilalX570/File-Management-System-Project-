@@ -663,9 +663,134 @@ void removeFileFromBeginning() {
         
         if (!found) {
             cout << "No files found with prefix '" << prefix << "'.\n";
+
+    
+    vector<FileNode*> searchBySizeRange(size_t minSize, size_t maxSize) {
+        vector<FileNode*> results;
+        FileNode* current = head;
+        while (current) {
+            if (current->type != DIRECTORY && 
+                current->size >= minSize && current->size <= maxSize) {
+                results.push_back(current);
+                current->lastSeenDate = time(nullptr);
+            }
+            current = current->next;
+        }
+        return results;
+    }
+};
+void openInFileExplorer(const string& path) {
+    #ifdef _WIN32
+        string command = "explorer \"" + path + "\"";
+    #elif __APPLE__
+        string command = "open \"" + path + "\"";
+    #else // Linux
+        string command = "xdg-open \"" + path + "\"";
+    #endif
+    system(command.c_str());
+}
+
+// File manager 
+struct FileManager {
+
+    FileList fileList;
+    RecycleBin recycleBin;
+
+     void showFileLocation() const {
+        string path = fs::current_path().string(); // Gets program's current directory
+        cout << "Files are stored in: " << path << endl;
+        openInFileExplorer(path);
+    }
+
+    string readFileContent(const string& filename) {
+        if (getFileType(filename) == DIRECTORY) {
+            return "";
+        }
+
+        ifstream file(filename);
+        string content, line;
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                content += line + "\n";
+            }
+            file.close();
+        }
+        return content;
+    }
+
+    void displayFileStats(const string& filename) const {
+        const FileNode* fileNode = fileList.getFileNode(filename);
+        if (fileNode) {
+            fileNode->displayInfo();
+        } else {
+            cout << "File not found in memory.\n";
         }
     }
 
+    void displayMemoryStatus() const {
+        map<FileType, size_t> sizeMap = fileList.getTotalSizesByType();
+        size_t totalSize = 0;
+
+        cout << "\nMemory Status by File Type:\n";
+        cout << "----------------------------------------\n";
+        
+        for (const auto& pair : sizeMap) {
+            cout << left << setw(12) << fileTypeToString(pair.first) << ": " 
+                 << right << setw(12) << pair.second << " bytes ("
+                 << fixed << setprecision(2) << (pair.second / 1024.0) << " KB, "
+                 << (pair.second / (1024.0 * 1024.0)) << " MB)\n";
+            totalSize += pair.second;
+        }
+
+        cout << "----------------------------------------\n";
+        cout << left << setw(12) << "Total" << ": " 
+             << right << setw(12) << totalSize << " bytes ("
+             << fixed << setprecision(2) << (totalSize / 1024.0) << " KB, "
+             << (totalSize / (1024.0 * 1024.0)) << " MB)\n";
+    }
+
+public:
+    void createFile(const string& filename, int position = -1) {
+    if (fs::exists(filename)) {
+        cout << "File/directory already exists: " << filename << endl;
+        return;
+    }
+
+    // Create parent directories if they don't exist
+    fs::path p(filename);
+    if (p.has_parent_path() && !fs::exists(p.parent_path())) {
+        fs::create_directories(p.parent_path());
+    }
+
+    ofstream file(filename);
+    if (file.is_open()) {
+        file.close();
+        fileList.addFile(filename, readFileContent(filename), position);
+        saveFiles();
+        cout << "File created: " << filename << endl;
+    } else {
+        cout << "Failed to create file: " << filename << endl;
+    }
+}
+
+    void createDirectory(const string& dirname, int position = -1) {
+        if (fs::exists(dirname)) {
+            cout << "Directory '" << dirname << "' already exists.\n";
+            return;
+        }
+
+        try {
+            if (fs::create_directory(dirname)) {
+                cout << "Directory '" << dirname << "' created successfully.\n";
+                fileList.addFile(dirname, "", position);
+                saveFiles();
+            } else {
+                cout << "Failed to create directory '" << dirname << "'.\n";
+            }
+        } catch (const exception& e) {
+            cerr << "Error creating directory: " << e.what() << endl;
+        }
+    }
  void updateFileContent(const string& filename, const string& content) {
         FileNode* fileNode = getFileNode(filename);
         if (fileNode) {
@@ -727,7 +852,6 @@ void removeFileFromBeginning() {
         }
         return results;
     }
-};
 
     void readFile(const string& filename) {
         if (!fileList.contains(filename)) {
@@ -1213,14 +1337,15 @@ void displaySortMenu() {
     cout << "Enter your choice: ";
 }
 int main() {
-
+    FileManager fm;
+    fm.recoverFromCrash();
+    fm.loadFiles();
    
-    
-    while (true) {
+     while (true) {
         displayMainMenu();
         int choice;
         cin >> choice;
-        
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
         
         if (choice == 12) {
             cout << "Exiting program...\n";
@@ -1238,17 +1363,19 @@ int main() {
                 int createChoice;
                 cin >> createChoice;
                 cin.ignore();
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                 cout << "Enter name: ";
                 getline(cin, filename);
                 cout << "  To create at the last, enter (-1)\n  To create at the  first, enter (0)\n  Create at specific index\nEnter position: ";
                 cin >> position;
                 cin.ignore();
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                 if (createChoice == 1) {
-                       
+                      fm.createFile(filename, position); 
                 } else if (createChoice == 2) {
-                    
+                     fm.createDirectory(filename, position);
                 } else {
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
@@ -1263,16 +1390,17 @@ int main() {
                 int deleteChoice;
                 cin >> deleteChoice;
                 cin.ignore();
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                 if (deleteChoice == 1) {
                     cout << "  To delete from last, enter (-1)\n  To delete from first, enter (0)\n  Delete from specific index\nEnter position: ";
                     cin >> position;
                     cin.ignore();
-                   
+                    fm.deleteFile(position);
                 } else if (deleteChoice == 2) {
                     cout << "Enter filename: ";
                     getline(cin, filename);
-                    
+                    fm.deleteFileByName(filename);
                 } else {
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
@@ -1281,12 +1409,13 @@ int main() {
                 break;
             }
             case 3: // List Files
-                
+                fm.listFiles();
                 break;
             case 4: { // Search File
                 cout << "Enter filename to search: ";
                 getline(cin, filename);
-                
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                fm.searchFile(filename)
                 break;
             }
             case 5: { // Sort Files
@@ -1297,6 +1426,7 @@ int main() {
                 if (sortChoice >= 1 && sortChoice <= 3) {
                     
                 } else if (sortChoice != 0) {
+                       fm.sortFiles(sortChoice);
                 cout << "|-----------------------------------|\n";
                 cout << "| Invalid choice.                   |\n";
                 cout << "|-----------------------------------|\n";
@@ -1309,7 +1439,8 @@ int main() {
                     int fileOpChoice;
                     cin >> fileOpChoice;
                     cin.ignore();
-                    
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
                     if (fileOpChoice == 0) break;
                     
                     cout << "Enter filename: ";
@@ -1317,31 +1448,31 @@ int main() {
                     
                     switch (fileOpChoice) {
                         case 1:
-                            
+                            fm.readFile(filename);
                             break;
                         case 2:
                             cout << "Enter content to append: ";
                             getline(cin, content);
-                            
+                            fm.updateFile(filename, content);
                             break;
                         case 3:
                             cout << "Enter new content: ";
                             getline(cin, content);
-                            
+                            fm.overwriteFile(filename, content);
                             break;
                         case 4:
-                            
+                            fm.displayFileContent(filename);
                             break;
                         case 5:
                             cout << "Enter new name: ";
                             getline(cin, newName);
-                            
+                            fm.updateFileName(filename, newName);
                             break;
                         case 6:
-                            
+                            fm.fileStatistics(filename);
                             break;
                         case 7:
-                           
+                           fm.updateFileMetadata(filename);
                             break;
                         default:
                         cout << "|-----------------------------------|\n";
@@ -1357,21 +1488,21 @@ int main() {
                     int advSearchChoice;
                     cin >> advSearchChoice;
                     cin.ignore();
-                    
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');      
                     if (advSearchChoice == 0) break;
                     
                     switch (advSearchChoice) {
                         case 1:
-                            
+                           fm.searchFilesByContent(); 
                             break;
                         case 2:
-                          
+                            fm.searchFilesByType();
                             break;
                         case 3:
-                            
+                            fm.searchFilesBySizeRange();
                             break;
                         case 4:
-                          
+                          fm.searchFilesByPrefix();
                             break;
                         default:
                             cout << "|-----------------------------------|\n";
@@ -1402,10 +1533,13 @@ int main() {
                 break;
             }
             case 10: // Manage Recycle Bin
-                
+                fm.manageRecycleBin();
                 break;
             case 11: // View Memory Status
-                
+                fm.displayMemoryStatus();
+                break;
+                case 12:  // Open File Location
+                fm.showFileLocation();
                 break;
             default:
                 cout << "|-----------------------------------|\n";
