@@ -1414,8 +1414,11 @@ int main() {
             case 4: { // Search File
                 cout << "Enter filename to search: ";
                 getline(cin, filename);
+
+                fm.searchFile(filename);
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 fm.searchFile(filename)
+
                 break;
             }
             case 5: { // Sort Files
@@ -1424,7 +1427,7 @@ int main() {
                 cin >> sortChoice;
                 cin.ignore();
                 if (sortChoice >= 1 && sortChoice <= 3) {
-                    
+                    fm.sortFiles(sortChoice);
                 } else if (sortChoice != 0) {
                        fm.sortFiles(sortChoice);
                 cout << "|-----------------------------------|\n";
